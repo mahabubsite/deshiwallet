@@ -1,0 +1,7 @@
+{
+  "name": "Deshi Wallet & Vault",
+  "description": "A secure, premium digital wallet and document vault for managing cards, IDs, and sensitive data with biometrically-secured access.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
