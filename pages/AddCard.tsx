@@ -50,7 +50,7 @@ const AddCard: React.FC<{ isEdit?: boolean }> = ({ isEdit }) => {
     expiryDate: '',
     cvv: '',
     pin: '',
-    paymentMethod: 'Visa' as 'Visa' | 'MasterCard' | 'Amex',
+    paymentMethod: 'Visa' as 'Visa' | 'MasterCard' | 'Amex' | 'Nexus',
     design: 'default'
   });
 
@@ -151,7 +151,13 @@ const AddCard: React.FC<{ isEdit?: boolean }> = ({ isEdit }) => {
                   <p className="text-[8px] font-black uppercase opacity-60 tracking-widest mb-1">HOLDER</p>
                   <p className="text-sm font-bold uppercase tracking-widest truncate max-w-[180px] drop-shadow-sm">{formData.holderName || 'PENDING ENTRY'}</p>
                 </div>
-                <i className={`fab fa-cc-${formData.paymentMethod.toLowerCase()} text-4xl opacity-90 drop-shadow-sm`}></i>
+                {formData.paymentMethod === 'Nexus' ? (
+  <span className="text-sm font-black tracking-widest px-3 py-1 border border-white/60 rounded-md">
+    NEXUS
+  </span>
+) : (
+  <i className={`fab fa-cc-${formData.paymentMethod.toLowerCase()} text-4xl opacity-90 drop-shadow-sm`}></i>
+)}
               </div>
             </div>
           </div>
@@ -246,7 +252,7 @@ const AddCard: React.FC<{ isEdit?: boolean }> = ({ isEdit }) => {
                 ))}
              </div>
              <div className="flex gap-2">
-                {['Visa', 'MasterCard', 'Amex'].map(m => (
+                {['Visa', 'MasterCard', 'Amex', 'Nexus'].map(m => (
                   <button key={m} type="button" onClick={() => setFormData({ ...formData, paymentMethod: m as any })} className={`flex-1 py-3 text-[9px] font-black uppercase rounded-xl border-2 transition-all ${formData.paymentMethod === m ? 'border-primary text-primary bg-primary/5 shadow-sm' : 'border-gray-100 dark:border-gray-800 text-gray-400'}`}>{m}</button>
                 ))}
              </div>
