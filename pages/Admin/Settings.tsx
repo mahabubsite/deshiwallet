@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -97,6 +96,12 @@ const AdminSettings: React.FC = () => {
     saveConfig(newConfig);
   };
 
+  const toggleCustomPage = (id: string) => {
+    if (!config) return;
+    const newPages = config.customPages.map(p => p.id === id ? { ...p, active: !p.active } : p);
+    saveConfig({ ...config, customPages: newPages });
+  };
+
   const handleAddCustomPage = () => {
     if (!config || !newPage.title) return;
     const page: CustomPage = {
@@ -136,7 +141,7 @@ const AdminSettings: React.FC = () => {
     addCard: 'New Card Entry',
     report: 'Report Issue Form',
     profile: 'Profile Management',
-    about: 'About App Page'
+    about: 'About Platform Page'
   };
 
   return (
@@ -157,93 +162,157 @@ const AdminSettings: React.FC = () => {
               onClick={() => setActiveTab(tab)}
               className={`flex-1 min-w-[130px] py-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab ? 'bg-white dark:bg-secondary text-primary shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              {tab === 'toggles' ? 'Visibility' : tab === 'system-pages' ? 'System Pages' : tab === 'custom-pages' ? 'Custom Pages' : 'Versions'}
+              {tab === 'toggles' ? 'Visibility' : tab === 'system-pages' ? 'Page Editor' : tab === 'custom-pages' ? 'Custom Pages' : 'Versions'}
             </button>
           ))}
         </div>
 
         {activeTab === 'toggles' && config && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.keys(DEFAULT_CONFIG.features).map((key) => (
-              <div key={key} className="flex items-center justify-between p-6 bg-gray-50 dark:bg-dark/50 rounded-[32px] border border-gray-100 dark:border-gray-800">
-                <div className="flex flex-col">
-                   <span className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-tight">{featureLabels[key] || key}</span>
-                   <span className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">{config.features[key] ? 'Visible' : 'Hidden'}</span>
-                </div>
-                <button 
-                  onClick={() => toggleFeature(key)}
-                  className={`w-12 h-6 rounded-full transition-all relative ${config.features[key] ? 'bg-primary shadow-lg' : 'bg-gray-200 dark:bg-dark'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${config.features[key] ? 'left-7' : 'left-1'}`}></div>
-                </button>
+          <div className="space-y-12">
+            <div>
+              <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6 px-2">Core System Modules</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.keys(DEFAULT_CONFIG.features).map((key) => (
+                  <div key={key} className="flex items-center justify-between p-6 bg-gray-50 dark:bg-dark/50 rounded-[32px] border border-gray-100 dark:border-gray-800">
+                    <div className="flex flex-col">
+                       <span className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-tight">{featureLabels[key] || key}</span>
+                       <span className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">{config.features[key] ? 'Visible' : 'Hidden'}</span>
+                    </div>
+                    <button 
+                      onClick={() => toggleFeature(key)}
+                      className={`w-12 h-6 rounded-full transition-all relative ${config.features[key] ? 'bg-primary shadow-lg' : 'bg-gray-200 dark:bg-dark'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${config.features[key] ? 'left-7' : 'left-1'}`}></div>
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-6 px-2">
+                <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Custom Identity Pages</h3>
+                <button onClick={() => setShowAddPage(true)} className="text-[10px] font-black uppercase text-primary hover:underline">Add New Resource</button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {config.customPages.map((page) => (
+                  <div key={page.id} className="flex items-center justify-between p-6 bg-gray-50 dark:bg-dark/50 rounded-[32px] border border-gray-100 dark:border-gray-800 group">
+                    <div className="flex items-center space-x-3 overflow-hidden">
+                      <div className="w-10 h-10 flex-shrink-0 bg-white dark:bg-secondary rounded-xl flex items-center justify-center text-primary shadow-sm">
+                        <i className={`fas ${page.icon}`}></i>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                         <span className="text-xs font-black text-gray-800 dark:text-gray-200 uppercase tracking-tight truncate">{page.title}</span>
+                         <div className="flex items-center space-x-2">
+                           <button onClick={() => setEditingPage(page)} className="text-[8px] font-black text-primary uppercase hover:underline">Edit</button>
+                           <button onClick={() => deleteCustomPage(page.id)} className="text-[8px] font-black text-red-500 uppercase hover:underline">Delete</button>
+                         </div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => toggleCustomPage(page.id)}
+                      className={`w-12 h-6 rounded-full flex-shrink-0 transition-all relative ${page.active !== false ? 'bg-primary shadow-lg' : 'bg-gray-200 dark:bg-dark'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${page.active !== false ? 'left-7' : 'left-1'}`}></div>
+                    </button>
+                  </div>
+                ))}
+                {config.customPages.length === 0 && (
+                   <div className="col-span-full py-8 text-center text-gray-400 font-bold uppercase text-[9px] tracking-widest border border-dashed border-gray-200 rounded-[32px]">No custom identity pages configured</div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         {activeTab === 'custom-pages' && config && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-               <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Manage Custom Pages</h3>
-               <button onClick={() => setShowAddPage(true)} className="px-6 py-3 bg-primary text-white text-[10px] font-black rounded-xl uppercase tracking-widest">+ Add New Page</button>
+            <div className="flex justify-between items-center px-2">
+               <div>
+                 <h3 className="text-sm font-black uppercase tracking-widest text-gray-800 dark:text-white">Custom Page Matrix</h3>
+                 <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Direct access routes for unique resources</p>
+               </div>
+               <button onClick={() => setShowAddPage(true)} className="px-6 py-3 bg-primary text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-xl shadow-primary/20">+ Create Page</button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {config.customPages.map(page => (
-                <div key={page.id} className="bg-gray-50 dark:bg-dark p-6 rounded-[32px] border border-gray-100 dark:border-gray-800">
+                <div key={page.id} className="bg-gray-50 dark:bg-dark p-6 rounded-[32px] border border-gray-100 dark:border-gray-800 hover:border-primary/30 transition-all group">
                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-10 h-10 bg-white dark:bg-secondary rounded-xl flex items-center justify-center text-primary shadow-sm">
+                      <div className="w-10 h-10 bg-white dark:bg-secondary rounded-xl flex items-center justify-center text-primary shadow-sm group-hover:bg-primary group-hover:text-white transition-all">
                         <i className={`fas ${page.icon}`}></i>
                       </div>
                       <div className="flex space-x-2">
-                        <button onClick={() => setEditingPage(page)} className="text-gray-400 hover:text-primary"><i className="fas fa-edit"></i></button>
-                        <button onClick={() => deleteCustomPage(page.id)} className="text-gray-400 hover:text-red-500"><i className="fas fa-trash-alt"></i></button>
+                        <button onClick={() => setEditingPage(page)} className="text-gray-300 hover:text-primary transition-colors"><i className="fas fa-edit"></i></button>
+                        <button onClick={() => deleteCustomPage(page.id)} className="text-gray-300 hover:text-red-500 transition-colors"><i className="fas fa-trash-alt"></i></button>
                       </div>
                    </div>
-                   <h4 className="font-bold text-sm mb-1">{page.title}</h4>
-                   <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">URL: /settings/page/{page.id}</p>
+                   <h4 className="font-black text-sm uppercase tracking-tight mb-1">{page.title}</h4>
+                   <p className="text-[10px] text-gray-400 font-bold tracking-widest">ID: {page.id}</p>
+                   <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800/50">
+                      <p className="text-[9px] font-black text-primary uppercase">Route: /settings/page/{page.id}</p>
+                   </div>
                 </div>
               ))}
               {config.customPages.length === 0 && (
-                <div className="col-span-full py-12 text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-[32px]">No custom pages created yet</div>
+                <div className="col-span-full py-20 text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-[40px]">Initialize your first custom resource above</div>
               )}
             </div>
           </div>
         )}
 
-        {/* System Pages Content Editor (Help, Privacy, etc.) */}
+        {/* System Pages Content Editor (About, Privacy, etc.) */}
         {activeTab === 'system-pages' && config && (
           <div className="space-y-8 animate-in slide-in-from-bottom-4">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-               <div className="space-y-6">
-                  <h3 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-widest">Edit System Pages</h3>
+             <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10">
+               <div className="space-y-8">
+                  <div className="flex items-center justify-between px-2">
+                    <h3 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-widest">Master Content Editor</h3>
+                  </div>
                   {['about', 'privacy', 'faq', 'terms'].map(contentKey => (
-                    <div key={contentKey} className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">{contentKey}</label>
+                    <div key={contentKey} className="space-y-3 p-6 bg-gray-50 dark:bg-dark rounded-[32px] border border-gray-100 dark:border-gray-800">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">{contentKey} payload</label>
+                        <i className="fas fa-code text-gray-200"></i>
+                      </div>
                       <textarea 
-                        className="w-full min-h-[150px] p-6 bg-gray-50 dark:bg-dark rounded-3xl font-mono text-xs focus:ring-4 focus:ring-primary/5"
+                        className="w-full min-h-[160px] p-6 bg-white dark:bg-secondary rounded-2xl font-mono text-xs focus:ring-4 focus:ring-primary/5 outline-none border border-transparent focus:border-primary/20 transition-all"
                         value={config.content[contentKey] || ''}
                         onChange={(e) => setConfig({...config, content: {...config.content, [contentKey]: e.target.value}})}
+                        placeholder={`Enter HTML content for ${contentKey}...`}
                       />
                     </div>
                   ))}
-                  <button onClick={() => saveConfig(config)} className="w-full py-5 bg-primary text-white font-black rounded-3xl uppercase tracking-widest shadow-xl">Update System Content</button>
+                  <button onClick={() => saveConfig(config)} className="w-full py-6 bg-primary text-white font-black rounded-[32px] uppercase tracking-[0.2em] shadow-2xl shadow-primary/30 text-xs active:scale-95 transition-all">Synchronize Global Content</button>
                </div>
-               <div className="p-8 bg-gray-50 dark:bg-dark rounded-[40px] border border-gray-100 dark:border-gray-800 overflow-y-auto no-scrollbar max-h-[800px]">
-                  <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Live Preview (About)</h3>
-                  <div className="prose prose-sm dark:prose-invert" dangerouslySetInnerHTML={{ __html: config.content.about }} />
+               <div className="relative">
+                 <div className="sticky top-24 p-8 bg-gray-50 dark:bg-dark rounded-[48px] border border-gray-100 dark:border-gray-800 overflow-y-auto no-scrollbar max-h-[85vh]">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8 border-b border-gray-100 dark:border-gray-800 pb-4 flex items-center">
+                      <i className="fas fa-desktop mr-3"></i> Real-time Preview: About
+                    </h3>
+                    <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: config.content.about }} />
+                 </div>
                </div>
              </div>
           </div>
         )}
 
         {activeTab === 'version' && config && (
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="p-8 bg-primary/5 rounded-[40px] border border-primary/10 space-y-6">
-                 <h3 className="text-sm font-black text-primary uppercase tracking-widest">Version Control</h3>
+           <div className="max-w-xl mx-auto py-10">
+              <div className="p-10 bg-primary/5 rounded-[48px] border border-primary/10 space-y-8 text-center">
+                 <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-white text-2xl mx-auto shadow-xl shadow-primary/30">
+                    <i className="fas fa-code-branch"></i>
+                 </div>
+                 <div>
+                    <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-tight">System Version Logic</h3>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">Global release management</p>
+                 </div>
                  <div className="space-y-4">
-                    <input type="text" className="w-full p-4 bg-white dark:bg-dark rounded-2xl font-bold" value={config.currentAppVersion} onChange={e => setConfig({...config, currentAppVersion: e.target.value})} />
-                    <button onClick={() => saveConfig(config)} className="w-full py-4 bg-primary text-white font-black rounded-2xl uppercase text-[10px]">Sync Version</button>
+                    <div className="text-left px-4">
+                      <label className="text-[9px] font-black text-gray-400 uppercase mb-2 block">Production Version</label>
+                      <input type="text" className="w-full p-5 bg-white dark:bg-dark rounded-2xl font-black text-center text-lg outline-none focus:ring-4 focus:ring-primary/5 border border-transparent focus:border-primary/20" value={config.currentAppVersion} onChange={e => setConfig({...config, currentAppVersion: e.target.value})} />
+                    </div>
+                    <button onClick={() => saveConfig(config)} className="w-full py-5 bg-primary text-white font-black rounded-3xl uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">Sync Production Engine</button>
                  </div>
               </div>
            </div>
@@ -252,41 +321,56 @@ const AdminSettings: React.FC = () => {
 
       {/* Add/Edit Custom Page Modal */}
       {(showAddPage || editingPage) && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center px-4">
-          <div className="bg-white dark:bg-secondary w-full max-w-4xl rounded-[48px] p-10 shadow-2xl animate-in zoom-in-95">
-            <h2 className="text-2xl font-black mb-6">{editingPage ? 'Edit Page' : 'Create Custom Page'}</h2>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center px-4 overflow-y-auto no-scrollbar">
+          <div className="bg-white dark:bg-secondary w-full max-w-4xl rounded-[48px] p-8 md:p-12 shadow-2xl animate-in zoom-in-95 my-8">
+            <div className="flex items-center justify-between mb-10">
+               <div>
+                  <h2 className="text-3xl font-black">{editingPage ? 'Edit Manifest' : 'Build Custom Page'}</h2>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Unique Resource Definition</p>
+               </div>
+               <button onClick={() => { setShowAddPage(false); setEditingPage(null); }} className="w-14 h-14 bg-gray-50 dark:bg-dark rounded-2xl flex items-center justify-center text-gray-400 hover:text-gray-900 transition-colors">
+                 <i className="fas fa-times"></i>
+               </button>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Page Title</label>
+              <div className="p-6 bg-gray-50 dark:bg-dark rounded-3xl">
+                <label className="text-[10px] font-black text-gray-400 uppercase mb-3 block">Display Title</label>
                 <input 
                   type="text" 
-                  className="w-full p-4 bg-gray-50 dark:bg-dark rounded-2xl font-bold"
+                  className="w-full p-4 bg-white dark:bg-secondary rounded-xl font-bold outline-none focus:ring-4 focus:ring-primary/5"
                   value={editingPage ? editingPage.title : newPage.title}
                   onChange={e => editingPage ? setEditingPage({...editingPage, title: e.target.value}) : setNewPage({...newPage, title: e.target.value})}
+                  placeholder="e.g. Developer Manual"
                 />
               </div>
-              <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">FontAwesome Icon</label>
-                <input 
-                  type="text" 
-                  className="w-full p-4 bg-gray-50 dark:bg-dark rounded-2xl font-bold"
-                  value={editingPage ? editingPage.icon : newPage.icon}
-                  onChange={e => editingPage ? setEditingPage({...editingPage, icon: e.target.value}) : setNewPage({...newPage, icon: e.target.value})}
-                />
+              <div className="p-6 bg-gray-50 dark:bg-dark rounded-3xl">
+                <label className="text-[10px] font-black text-gray-400 uppercase mb-3 block">FontAwesome Class</label>
+                <div className="relative">
+                  <i className={`fas ${editingPage ? editingPage.icon : newPage.icon} absolute right-4 top-1/2 -translate-y-1/2 text-primary`}></i>
+                  <input 
+                    type="text" 
+                    className="w-full p-4 bg-white dark:bg-secondary rounded-xl font-bold outline-none focus:ring-4 focus:ring-primary/5"
+                    value={editingPage ? editingPage.icon : newPage.icon}
+                    onChange={e => editingPage ? setEditingPage({...editingPage, icon: e.target.value}) : setNewPage({...newPage, icon: e.target.value})}
+                    placeholder="fa-book"
+                  />
+                </div>
               </div>
             </div>
-            <div className="mb-8">
-               <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">HTML Content</label>
+            <div className="mb-10">
+               <label className="text-[10px] font-black text-gray-400 uppercase mb-3 block px-2">HTML Payload</label>
                <textarea 
-                  className="w-full min-h-[300px] p-6 bg-gray-50 dark:bg-dark rounded-[32px] font-mono text-xs focus:ring-4 focus:ring-primary/5"
+                  className="w-full min-h-[300px] p-8 bg-gray-50 dark:bg-dark rounded-[40px] font-mono text-xs focus:ring-4 focus:ring-primary/5 outline-none border border-transparent focus:border-primary/20"
                   value={editingPage ? editingPage.content : newPage.content}
                   onChange={e => editingPage ? setEditingPage({...editingPage, content: e.target.value}) : setNewPage({...newPage, content: e.target.value})}
+                  placeholder="<h1>Hello World</h1>..."
                />
             </div>
             <div className="flex space-x-4">
-              <button onClick={() => { setShowAddPage(false); setEditingPage(null); }} className="flex-1 py-5 bg-gray-100 text-gray-400 font-black rounded-3xl uppercase text-[10px]">Cancel</button>
-              <button onClick={editingPage ? handleUpdateCustomPage : handleAddCustomPage} className="flex-[2] py-5 bg-primary text-white font-black rounded-3xl uppercase text-[10px] shadow-xl">
-                 {editingPage ? 'Save Changes' : 'Publish New Page'}
+              <button onClick={() => { setShowAddPage(false); setEditingPage(null); }} className="flex-1 py-5 bg-gray-100 dark:bg-dark text-gray-400 font-black rounded-[32px] uppercase text-[10px]">Abandon Changes</button>
+              <button onClick={editingPage ? handleUpdateCustomPage : handleAddCustomPage} className="flex-[2] py-5 bg-primary text-white font-black rounded-[32px] uppercase text-[10px] shadow-2xl shadow-primary/30">
+                 {editingPage ? 'Sync Updates' : 'Publish Resource'}
               </button>
             </div>
           </div>

@@ -12,10 +12,10 @@ const AdminDashboard: React.FC = () => {
     pendingVerifications: 0,
     deletionRequests: 0,
     feedbackCount: 0,
-    activeToday: 42 // Mocked for UI
+    activeToday: 42 
   });
   const [latestUsers, setLatestUsers] = useState<any[]>([]);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<'csv' | 'pdf' | null>(null);
 
   useEffect(() => {
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
@@ -56,29 +56,119 @@ const AdminDashboard: React.FC = () => {
     };
   }, []);
 
-  const handleExportAudit = async () => {
-    setExporting(true);
+  const fetchFullData = async () => {
+    const [u, c, d, v, f] = await Promise.all([
+      getDocs(collection(db, 'users')),
+      getDocs(collection(db, 'cards')),
+      getDocs(collection(db, 'documents')),
+      getDocs(collection(db, 'verificationRequests')),
+      getDocs(collection(db, 'feedback'))
+    ]);
+    return {
+      users: u.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+      cards: c.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+      docs: d.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+      verif: v.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+      feedback: f.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    };
+  };
+
+  const handleExportCSV = async () => {
+    setExporting('csv');
     try {
-      const snap = await getDocs(collection(db, 'users'));
-      const data = snap.docs.map(doc => {
-        const d = doc.data();
-        return `${d.fullName},${d.email},${d.status},${d.role}`;
-      }).join('\n');
+      const data = await fetchFullData();
+      let csv = "FULL SYSTEM AUDIT - " + new Date().toLocaleString() + "\n\n";
       
-      const csv = `Name,Email,Status,Role\n${data}`;
+      csv += "--- USERS ---\nName,Email,Status,Role,Joined\n";
+      data.users.forEach((u: any) => {
+        csv += `${u.fullName},${u.email},${u.status},${u.role},${u.createdAt?.seconds ? new Date(u.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}\n`;
+      });
+
+      csv += "\n--- CARDS ---\nBank,Holder,Card (Last 4),Method,Created\n";
+      data.cards.forEach((c: any) => {
+        csv += `${c.bankName},${c.holderName},${c.cardNumber?.slice(-4)},${c.paymentMethod},${c.createdAt?.seconds ? new Date(c.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}\n`;
+      });
+
+      csv += "\n--- DOCUMENTS ---\nTitle,Category,Created\n";
+      data.docs.forEach((docItem: any) => {
+        csv += `${docItem.title},${docItem.category},${docItem.createdAt?.seconds ? new Date(docItem.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}\n`;
+      });
+
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.setAttribute('hidden', '');
-      a.setAttribute('href', url);
-      a.setAttribute('download', `system_audit_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(a);
+      a.href = url;
+      a.download = `Full_System_Audit_${Date.now()}.csv`;
       a.click();
-      document.body.removeChild(a);
     } catch (err) {
-      alert('Export failed');
+      alert('CSV Export failed');
     } finally {
-      setExporting(false);
+      setExporting(null);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    setExporting('pdf');
+    try {
+      const data = await fetchFullData();
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      const html = `
+        <html>
+          <head>
+            <title>Full System Audit Report</title>
+            <style>
+              body { font-family: sans-serif; padding: 40px; color: #1e293b; }
+              h1 { color: #3b82f6; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 30px; }
+              h2 { font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-top: 40px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+              th { background: #f8fafc; text-align: left; padding: 10px; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; color: #94a3b8; font-size: 10px; }
+              td { padding: 10px; border-bottom: 1px solid #f1f5f9; }
+              .footer { margin-top: 50px; font-size: 10px; color: #cbd5e1; text-align: center; }
+            </style>
+          </head>
+          <body>
+            <h1>DeshiWallet System Audit</h1>
+            <p>Generated on: ${new Date().toLocaleString()}</p>
+            
+            <h2>Platform Summary</h2>
+            <table>
+              <tr><th>Metric</th><th>Count</th></tr>
+              <tr><td>Total Users</td><td>${stats.users}</td></tr>
+              <tr><td>Verified Users</td><td>${stats.verified}</td></tr>
+              <tr><td>Total Cards</td><td>${stats.cards}</td></tr>
+              <tr><td>Total Documents</td><td>${stats.documents}</td></tr>
+            </table>
+
+            <h2>User Registry</h2>
+            <table>
+              <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Joined</th></tr></thead>
+              <tbody>
+                ${data.users.map((u: any) => `<tr><td>${u.fullName}</td><td>${u.email}</td><td>${u.status}</td><td>${u.createdAt?.seconds ? new Date(u.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}</td></tr>`).join('')}
+              </tbody>
+            </table>
+
+            <h2>Asset Index (Cards)</h2>
+            <table>
+              <thead><tr><th>Bank</th><th>Holder</th><th>Method</th><th>Created</th></tr></thead>
+              <tbody>
+                ${data.cards.map((c: any) => `<tr><td>${c.bankName}</td><td>${c.holderName}</td><td>${c.paymentMethod}</td><td>${c.createdAt?.seconds ? new Date(c.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}</td></tr>`).join('')}
+              </tbody>
+            </table>
+
+            <div class="footer">Confidential System Document • DeshiWallet Security Node</div>
+          </body>
+        </html>
+      `;
+      
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.print();
+    } catch (err) {
+      alert('PDF Export failed');
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -91,23 +181,31 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tight">System Insights</h1>
           <p className="text-gray-400 text-sm font-bold uppercase tracking-widest mt-1">Real-time Platform Orchestration</p>
         </div>
-        <button 
-          onClick={handleExportAudit}
-          disabled={exporting}
-          className="flex items-center space-x-3 px-6 py-4 bg-white dark:bg-secondary border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
-        >
-          <i className={`fas ${exporting ? 'fa-spinner fa-spin' : 'fa-file-csv'} text-primary`}></i>
-          <span className="text-[10px] font-black uppercase tracking-widest">Full System Audit</span>
-        </button>
+        <div className="flex space-x-3">
+          <button 
+            onClick={handleExportCSV}
+            disabled={!!exporting}
+            className="flex items-center space-x-3 px-6 py-4 bg-white dark:bg-secondary border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50"
+          >
+            <i className={`fas ${exporting === 'csv' ? 'fa-spinner fa-spin' : 'fa-file-csv'} text-primary`}></i>
+            <span className="text-[10px] font-black uppercase tracking-widest">Download CSV</span>
+          </button>
+          <button 
+            onClick={handleExportPDF}
+            disabled={!!exporting}
+            className="flex items-center space-x-3 px-6 py-4 bg-primary text-white rounded-2xl shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <i className={`fas ${exporting === 'pdf' ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}></i>
+            <span className="text-[10px] font-black uppercase tracking-widest">Download PDF</span>
+          </button>
+        </div>
       </div>
 
-      {/* Top Statistic Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {topStats.map((stat, i) => (
           <div key={i} className="bg-white dark:bg-secondary p-6 rounded-[32px] shadow-sm border border-white dark:border-gray-800 group hover:border-primary/30 transition-all">
@@ -125,9 +223,7 @@ const AdminDashboard: React.FC = () => {
         ))}
       </div>
 
-      {/* Main Grid Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Activity Chart & Metrics */}
         <div className="lg:col-span-2 space-y-8">
           <div className="bg-white dark:bg-secondary p-8 rounded-[40px] shadow-sm border border-white dark:border-gray-800 overflow-hidden">
             <div className="flex items-center justify-between mb-8">
@@ -141,7 +237,6 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
             
-            {/* Custom SVG Growth Chart */}
             <div className="h-48 w-full relative group">
               <svg viewBox="0 0 400 100" className="w-full h-full preserve-3d">
                 <defs>
@@ -161,7 +256,6 @@ const AdminDashboard: React.FC = () => {
                   strokeWidth="3" 
                   strokeLinecap="round"
                 />
-                {/* Data Points */}
                 <circle cx="100" cy="60" r="4" fill="#3B82F6" />
                 <circle cx="200" cy="40" r="4" fill="#3B82F6" />
                 <circle cx="300" cy="10" r="4" fill="#3B82F6" />
@@ -225,7 +319,6 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Sidebar Charts */}
         <div className="space-y-8">
           <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-8 rounded-[40px] text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
              <div className="relative z-10">
@@ -234,13 +327,22 @@ const AdminDashboard: React.FC = () => {
                </div>
                <h3 className="text-xl font-black mb-1">Audit Center</h3>
                <p className="text-xs opacity-70 mb-8 font-medium">Export all system activity logs</p>
-               <button 
-                onClick={handleExportAudit}
-                disabled={exporting}
-                className="w-full py-4 bg-white text-indigo-600 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
-               >
-                 {exporting ? 'Exporting...' : 'Download CSV Audit'}
-               </button>
+               <div className="space-y-3">
+                 <button 
+                  onClick={handleExportCSV}
+                  disabled={!!exporting}
+                  className="w-full py-4 bg-white text-indigo-600 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+                 >
+                   {exporting === 'csv' ? 'Processing...' : 'CSV Audit'}
+                 </button>
+                 <button 
+                  onClick={handleExportPDF}
+                  disabled={!!exporting}
+                  className="w-full py-4 bg-indigo-500/50 text-white border border-white/20 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+                 >
+                   {exporting === 'pdf' ? 'Generating...' : 'PDF Report'}
+                 </button>
+               </div>
              </div>
              <i className="fas fa-fingerprint absolute -bottom-10 -right-10 text-[180px] opacity-10 rotate-12"></i>
           </div>
@@ -266,9 +368,6 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               ))}
-            </div>
-            <div className="mt-10 pt-8 border-t border-gray-50 dark:border-gray-800 text-center">
-               <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Platform Version: v1.3.0</p>
             </div>
           </div>
         </div>

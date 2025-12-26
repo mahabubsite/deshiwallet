@@ -18,17 +18,3 @@ View your app in AI Studio: https://ai.studio/apps/drive/1RvAAHUwtBMgf3P9ZAUNBNP
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
-
-## Favicon
-
-- **Place image:** Copy the provided `wallet.png` into the project root (next to `index.html`).
-- **Use directly:** The app references `/wallet.png` as the favicon. This works for modern browsers.
-- **Create a multi-resolution `.ico` (optional):** If you want a classic `favicon.ico`, install ImageMagick and run:
-
-```
-magick wallet.png -resize 64x64 -background transparent -gravity center -extent 64x64 favicon.ico
-```
-
-- **Online conversion:** Alternatively use any online PNG→ICO converter and place the resulting `favicon.ico` at the project root.
-
-After placing the file, reload the site and clear the browser cache to see the new favicon.

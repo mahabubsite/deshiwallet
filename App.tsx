@@ -20,6 +20,7 @@ import AddCard from './pages/AddCard';
 import CardDetails from './pages/CardDetails';
 import Settings from './pages/Settings';
 import About from './pages/About';
+import DeshiAI from './pages/DeshiAI';
 
 // Settings Sub-pages
 import PrivacyCenter from './pages/Settings/PrivacyCenter';
@@ -31,6 +32,7 @@ import LanguageSelection from './pages/Settings/Language';
 import ReportIssue from './pages/Settings/ReportIssue';
 import EditProfile from './pages/Settings/EditProfile';
 import DynamicPage from './pages/Settings/DynamicPage';
+import VerificationStatusPage from './pages/Settings/VerificationStatusPage';
 
 // Admin Pages
 import AdminDashboard from './pages/Admin/Dashboard';
@@ -67,6 +69,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  return context;
+};
+
+// PWA Install Context
+interface InstallContextType {
+  deferredPrompt: any;
+  isInstallable: boolean;
+  installApp: () => Promise<void>;
+}
+
+const InstallContext = createContext<InstallContextType | undefined>(undefined);
+
+export const useInstall = () => {
+  const context = useContext(InstallContext);
+  if (!context) throw new Error("useInstall must be used within an InstallProvider");
   return context;
 };
 
@@ -117,6 +134,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{ user, profile, loading, isUnlocked, setUnlocked, refreshProfile }}>
       {children}
     </AuthContext.Provider>
+  );
+};
+
+export const InstallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      // Prevent Chrome 67 and earlier from automatically showing the prompt
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    window.addEventListener('appinstalled', () => {
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+      console.log('PWA was installed');
+    });
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const installApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    setDeferredPrompt(null);
+    setIsInstallable(false);
+  };
+
+  return (
+    <InstallContext.Provider value={{ deferredPrompt, isInstallable, installApp }}>
+      {children}
+    </InstallContext.Provider>
   );
 };
 
@@ -283,9 +340,26 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith('/admin');
   const showStandardNavbar = !['/login', '/signup'].includes(location.pathname) && !isAdminPath;
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-dark transition-colors duration-300">
+      {isOffline && (
+        <div className="bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 text-center sticky top-0 z-[100] animate-in slide-in-from-top-full">
+           <i className="fas fa-wifi-slash mr-2"></i> Working Offline • Local Cache Active
+        </div>
+      )}
       {showStandardNavbar && <Navbar />}
       <main className={`flex-grow ${showStandardNavbar ? 'pb-20 md:pb-0' : ''}`}>
         <Routes>
@@ -309,10 +383,12 @@ const AppContent: React.FC = () => {
           <Route path="/settings/password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
           <Route path="/settings/language" element={<ProtectedRoute><LanguageSelection /></ProtectedRoute>} />
           <Route path="/settings/page/:pageId" element={<ProtectedRoute><DynamicPage /></ProtectedRoute>} />
+          <Route path="/settings/verification-status" element={<ProtectedRoute><VerificationStatusPage /></ProtectedRoute>} />
           <Route path="/add-card" element={<ProtectedRoute><AddCard /></ProtectedRoute>} />
           <Route path="/card/:id" element={<ProtectedRoute><CardDetails /></ProtectedRoute>} />
           <Route path="/edit-card/:id" element={<ProtectedRoute><AddCard isEdit /></ProtectedRoute>} />
           <Route path="/about" element={<ProtectedRoute><About /></ProtectedRoute>} />
+          <Route path="/ai" element={<ProtectedRoute><DeshiAI /></ProtectedRoute>} />
           
           <Route path="/admin/*" element={
             <ProtectedRoute adminOnly>
@@ -344,9 +420,11 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <HashRouter>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <InstallProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </InstallProvider>
     </HashRouter>
   );
 };
