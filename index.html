@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Deshi Wallet & Vault</title>
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/manifest.json">
     <link rel="icon" type="image/png" href="/wallet.png">
     
     <!-- PWA primary color -->
@@ -21,8 +21,11 @@
     <meta name="msapplication-TileColor" content="#3B82F6">
     <meta name="msapplication-TileImage" content="/wallet.png">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preload" href="/index.css" as="style">
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -87,14 +90,14 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
 <body class="bg-gray-50 dark:bg-dark text-gray-900 dark:text-gray-100">
     <div id="root"></div>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').then(reg => {
+          navigator.serviceWorker.register('/sw.js').then(reg => {
             console.log('SW registered:', reg);
           }).catch(err => {
             console.log('SW registration failed:', err);

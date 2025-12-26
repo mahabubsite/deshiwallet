@@ -1,50 +1,50 @@
 
-import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
+import React, { useState, useEffect, createContext, useContext, useRef, Suspense, lazy } from 'react';
 import * as Router from 'react-router-dom';
 import * as firebaseAuth from 'firebase/auth';
 import { doc, getDoc, collection, query, where, onSnapshot, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { UserProfile, UserRole, Notification } from './types';
 
-// Pages
-import Login from './pages/Login';
-import SignUp from './pages/SignUp';
-import Home from './pages/Home';
-import VerifyIdentity from './pages/VerifyIdentity';
-import DocumentVault from './pages/DocumentVault';
-import AddDocument from './pages/AddDocument';
-import DocumentDetails from './pages/DocumentDetails';
-import Notifications from './pages/Notifications';
-import NotificationDetail from './pages/NotificationDetail';
-import AddCard from './pages/AddCard';
-import CardDetails from './pages/CardDetails';
-import Settings from './pages/Settings';
-import About from './pages/About';
-import DeshiAI from './pages/DeshiAI';
+// Pages (lazy-loaded for faster initial bundle)
+const Login = lazy(() => import('./pages/Login'));
+const SignUp = lazy(() => import('./pages/SignUp'));
+const Home = lazy(() => import('./pages/Home'));
+const VerifyIdentity = lazy(() => import('./pages/VerifyIdentity'));
+const DocumentVault = lazy(() => import('./pages/DocumentVault'));
+const AddDocument = lazy(() => import('./pages/AddDocument'));
+const DocumentDetails = lazy(() => import('./pages/DocumentDetails'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const NotificationDetail = lazy(() => import('./pages/NotificationDetail'));
+const AddCard = lazy(() => import('./pages/AddCard'));
+const CardDetails = lazy(() => import('./pages/CardDetails'));
+const Settings = lazy(() => import('./pages/Settings'));
+const About = lazy(() => import('./pages/About'));
+const DeshiAI = lazy(() => import('./pages/DeshiAI'));
 
-// Settings Sub-pages
-import PrivacyCenter from './pages/Settings/PrivacyCenter';
-import HelpSupport from './pages/Settings/HelpSupport';
-import TermsConditions from './pages/Settings/TermsConditions';
-import ChangePin from './pages/Settings/ChangePin';
-import ChangePassword from './pages/Settings/ChangePassword';
-import LanguageSelection from './pages/Settings/Language';
-import ReportIssue from './pages/Settings/ReportIssue';
-import EditProfile from './pages/Settings/EditProfile';
-import DynamicPage from './pages/Settings/DynamicPage';
-import VerificationStatusPage from './pages/Settings/VerificationStatusPage';
+// Settings Sub-pages (lazy)
+const PrivacyCenter = lazy(() => import('./pages/Settings/PrivacyCenter'));
+const HelpSupport = lazy(() => import('./pages/Settings/HelpSupport'));
+const TermsConditions = lazy(() => import('./pages/Settings/TermsConditions'));
+const ChangePin = lazy(() => import('./pages/Settings/ChangePin'));
+const ChangePassword = lazy(() => import('./pages/Settings/ChangePassword'));
+const LanguageSelection = lazy(() => import('./pages/Settings/Language'));
+const ReportIssue = lazy(() => import('./pages/Settings/ReportIssue'));
+const EditProfile = lazy(() => import('./pages/Settings/EditProfile'));
+const DynamicPage = lazy(() => import('./pages/Settings/DynamicPage'));
+const VerificationStatusPage = lazy(() => import('./pages/Settings/VerificationStatusPage'));
 
-// Admin Pages
-import AdminDashboard from './pages/Admin/Dashboard';
-import AdminUsers from './pages/Admin/Users';
-import AdminVerification from './pages/Admin/Verification';
-import AdminDocuments from './pages/Admin/Documents';
-import AdminCards from './pages/Admin/Cards';
-import AdminDeletionRequests from './pages/Admin/DeletionRequests';
-import AdminDesigns from './pages/Admin/Designs';
-import AdminSettings from './pages/Admin/Settings';
-import AdminReports from './pages/Admin/Reports';
-import AdminNotifications from './pages/Admin/Notifications';
+// Admin Pages (lazy)
+const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
+const AdminUsers = lazy(() => import('./pages/Admin/Users'));
+const AdminVerification = lazy(() => import('./pages/Admin/Verification'));
+const AdminDocuments = lazy(() => import('./pages/Admin/Documents'));
+const AdminCards = lazy(() => import('./pages/Admin/Cards'));
+const AdminDeletionRequests = lazy(() => import('./pages/Admin/DeletionRequests'));
+const AdminDesigns = lazy(() => import('./pages/Admin/Designs'));
+const AdminSettings = lazy(() => import('./pages/Admin/Settings'));
+const AdminReports = lazy(() => import('./pages/Admin/Reports'));
+const AdminNotifications = lazy(() => import('./pages/Admin/Notifications'));
 
 // Components
 import Navbar from './components/Navbar';
@@ -113,15 +113,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u: any) => {
+    // Make auth state non-blocking: set loading false as soon as we know auth state,
+    // then fetch the profile asynchronously so initial render is fast.
+    const unsubscribe = onAuthStateChanged(auth, (u: any) => {
       setUser(u);
+      setLoading(false);
       if (u) {
-        await fetchProfile(u.uid);
+        // fetch profile but don't block render
+        fetchProfile(u.uid);
       } else {
         setProfile(null);
         setUnlocked(false);
       }
-      setLoading(false);
     });
     return unsubscribe;
   }, []);
@@ -180,10 +183,22 @@ export const InstallProvider: React.FC<{ children: React.ReactNode }> = ({ child
 const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly }) => {
   const { user, profile, loading, isUnlocked } = useAuth();
   const location = useLocation();
+  const [showSplash, setShowSplash] = useState(loading);
 
-  if (loading) return <LoadingScreen />;
+  // Ensure the splash is shown at most 1.5s for perceived performance
+  useEffect(() => {
+    if (loading) {
+      setShowSplash(true);
+      const t = setTimeout(() => setShowSplash(false), 1500);
+      return () => clearTimeout(t);
+    } else {
+      setShowSplash(false);
+    }
+  }, [loading]);
+
+  if (loading && showSplash) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" state={{ from: location }} />;
-  
+
   if (!isUnlocked && profile?.pinProtectionEnabled) {
     return <PinLock />;
   }
@@ -362,6 +377,7 @@ const AppContent: React.FC = () => {
       )}
       {showStandardNavbar && <Navbar />}
       <main className={`flex-grow ${showStandardNavbar ? 'pb-20 md:pb-0' : ''}`}>
+        <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
@@ -412,6 +428,7 @@ const AppContent: React.FC = () => {
           
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        </Suspense>
       </main>
     </div>
   );

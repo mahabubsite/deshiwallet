@@ -1,10 +1,11 @@
 
-const CACHE_NAME = 'deshi-wallet-v1.1';
+const CACHE_NAME = 'deshi-wallet-v2';
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './index.tsx',
-  './manifest.json',
+  '/index.html',
+  '/index.css',
+  '/index.tsx',
+  '/manifest.json',
+  '/wallet.png',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
@@ -38,37 +39,50 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Event
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
-  // For Firebase and other dynamic APIs, bypass cache
+  // Bypass caching for dynamic Firebase endpoints
   if (event.request.url.includes('firestore.googleapis.com') || 
       event.request.url.includes('firebasestorage.googleapis.com') ||
       event.request.url.includes('identitytoolkit.googleapis.com')) {
     return;
   }
 
+  // Handle navigation requests (SPA routing) with network-first, fallback to cached index.html
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        return caches.open(CACHE_NAME).then((cache) => {
+          // Cache the fresh index.html for offline fallback
+          if (networkResponse && networkResponse.status === 200) {
+            cache.put('/index.html', networkResponse.clone());
+          }
+          return networkResponse;
+        });
+      }).catch(() => {
+        return caches.match('/index.html');
+      })
+    );
+    return;
+  }
+
+  // For other requests: try cache first, then network, and cache successful GETs
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Return cached response but refresh it in background for next time (Stale-While-Revalidate)
-        const fetchPromise = fetch(event.request).then((networkResponse) => {
+        fetch(event.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, networkResponse.clone());
             });
           }
-          return networkResponse;
-        }).catch(() => {
-          // Ignore network errors for background fetch
-        });
-        
+        }).catch(() => {});
+
         return cachedResponse;
       }
 
-      // If not in cache, fetch from network
       return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+        if (!networkResponse || networkResponse.status !== 200) {
           return networkResponse;
         }
 
@@ -79,10 +93,8 @@ self.addEventListener('fetch', (event) => {
 
         return networkResponse;
       }).catch(() => {
-        // If both fail and it's a navigation request, show the root index.html (offline support)
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
+        // If network fails for non-navigation requests, try cache fallback
+        return caches.match(event.request);
       });
     })
   );
