@@ -2,7 +2,7 @@
   "name": "Deshi Wallet & Vault",
   "short_name": "DeshiWallet",
   "description": "Premium secure digital wallet and document vault for identities and cards.",
-  "start_url": "/index.html",
+  "start_url": "/",
   "scope": "/",
   "id": "com.deshi.wallet.v1",
   "display": "standalone",

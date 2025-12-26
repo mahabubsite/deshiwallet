@@ -1,11 +1,13 @@
 
-const CACHE_NAME = 'deshi-wallet-v2';
+const CACHE_NAME = 'deshi-wallet-v3';
 const ASSETS_TO_CACHE = [
   '/index.html',
   '/index.css',
   '/index.tsx',
   '/manifest.json',
   '/wallet.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
